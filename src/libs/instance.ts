@@ -1,8 +1,9 @@
+// src/libs/instance.ts
+
 // Impor yang dibutuhkan
-import environment from "@/config/environment"; // Mengambil konfigurasi lingkungan (seperti API_URL)
-import { SessionExtended } from "@/types/Auth"; // Tipe kustom untuk sesi, mungkin menambahkan accessToken
+import environment from "@/config/environment";
 import axios from "axios";
-import { getSession } from "next-auth/react"; // Fungsi dari NextAuth untuk mendapatkan sesi di sisi klien
+import { getSession } from "next-auth/react";
 
 // Header default untuk semua permintaan
 const headers = {
@@ -11,16 +12,18 @@ const headers = {
 
 // Membuat instance Axios
 const instance = axios.create({
-  baseURL: environment.API_URL, // URL dasar API dari konfigurasi lingkungan
-  headers, // Menggunakan header default di atas
-  timeout: 60 * 1000, // Timeout permintaan dalam milidetik (60 detik)
+  baseURL: environment.API_URL, //
+  headers,
+  timeout: 60 * 1000,
 });
 
 // Interceptor untuk Permintaan (Request Interceptor)
 instance.interceptors.request.use(
   async (request) => {
     // Mendapatkan sesi pengguna saat ini menggunakan NextAuth
-    const session: SessionExtended | null = await getSession();
+    // Tipe data sudah otomatis benar berkat file Auth.d.ts yang baru
+    const session = await getSession();
+
     // Jika sesi ada dan memiliki accessToken
     if (session && session.accessToken) {
       // Tambahkan header Authorization dengan Bearer token
