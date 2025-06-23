@@ -1,6 +1,6 @@
 // src/services/itemService.ts
 
-import instance from "@/lib/instance"; // Pastikan path ini benar
+import instance from "@/lib/instance";
 import { ItemFormValues } from "@/lib/validations/item";
 
 // Tipe untuk data item individual
@@ -23,25 +23,30 @@ export interface PaginatedItemsResponse {
 }
 
 /**
- * Mengambil data barang dengan paginasi dan pencarian.
+ * Mengambil data barang dengan paginasi, pencarian, dan pengurutan.
  * @param page - Nomor halaman yang ingin diambil.
  * @param limit - Jumlah item per halaman.
  * @param search - Kata kunci pencarian (opsional).
+ * @param sortBy - Field untuk mengurutkan (opsional).
+ * @param sortOrder - Urutan pengurutan (opsional, 'asc' atau 'desc').
  * @returns Promise<PaginatedItemsResponse>
  */
 export const getItems = async (
   page: number,
   limit: number,
-  search?: string // Tambahkan parameter search opsional
+  search?: string,
+  sortBy?: string, // Tambahkan parameter sortBy opsional
+  sortOrder?: "asc" | "desc" // Tambahkan parameter sortOrder opsional
 ): Promise<PaginatedItemsResponse> => {
   const response = await instance.get("/items", {
     params: {
       page,
       limit,
-      search, // Kirim search term ke backend
+      search,
+      sortBy, // Kirim sortBy ke backend
+      sortOrder, // Kirim sortOrder ke backend
     },
   });
-  // Kita kembalikan seluruh objek `response.data` yang berisi `data` dan `pagination`
   return response.data;
 };
 
