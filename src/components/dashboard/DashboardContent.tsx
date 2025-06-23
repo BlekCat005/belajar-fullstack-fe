@@ -1,7 +1,11 @@
+// src/components/dashboard/DashboardContent.tsx
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { PlusCircle, MoreHorizontal } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Search } from "lucide-react";
+
+// Impor custom hook useDebounce
+import { useDebounce } from "@/hooks/use-debounce"; // Tambahkan import ini
 
 // Impor komponen baru kita
 import { ItemFormValues } from "@/lib/validations/item";
@@ -40,6 +44,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -61,6 +66,7 @@ import { ItemFormDialog } from "@/app/dashboard/ItemFormDialog";
 import { toast } from "sonner";
 
 const ITEMS_PER_PAGE = 5;
+const DEBOUNCE_DELAY = 500; // Definisikan delay debounce, misalnya 500ms
 
 export default function DashboardContent() {
   const [items, setItems] = useState<Item[]>([]);
@@ -74,30 +80,43 @@ export default function DashboardContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Perubahan ada di sini: Hapus baris setCurrentPage
-  const fetchItems = useCallback(async (page: number) => {
+  // Gunakan state terpisah untuk input search dan nilai debounced
+  const [searchInput, setSearchInput] = useState("");
+  const debouncedSearchTerm = useDebounce(searchInput, DEBOUNCE_DELAY); // Gunakan useDebounce di sini
+
+  // Modifikasi fetchItems untuk menerima searchTerm
+  const fetchItems = useCallback(async (page: number, search: string = "") => {
     try {
       setIsLoading(true);
-      const response = await getItems(page, ITEMS_PER_PAGE);
+      const response = await getItems(page, ITEMS_PER_PAGE, search);
       setItems(response.data);
       setTotalPages(response.pagination.totalPages);
-      // Baris `setCurrentPage(response.pagination.current)` Dihapus dari sini
+      setCurrentPage(response.pagination.current);
     } catch (err) {
       setError("Gagal memuat data barang.");
       console.error(err);
     } finally {
       setIsLoading(false);
     }
-  }, []); // Dependency array tetap kosong, ini sudah benar
+  }, []);
 
   useEffect(() => {
-    fetchItems(currentPage);
-  }, [currentPage, fetchItems]);
+    // Panggil fetchItems saat currentPage atau debouncedSearchTerm berubah
+    // setCurrentPage(1) sudah dipanggil di handleSearchChange, jadi tidak perlu di sini.
+    fetchItems(currentPage, debouncedSearchTerm);
+  }, [currentPage, debouncedSearchTerm, fetchItems]); // Ganti searchTerm dengan debouncedSearchTerm
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage);
     }
+  };
+
+  // Fungsi untuk menangani perubahan input search (sekarang update searchInput)
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchInput(e.target.value); // Update searchInput
+    // Tidak perlu mereset currentPage di sini, biarkan useEffect meresetnya berdasarkan debouncedSearchTerm
+    setCurrentPage(1); // Tetap reset halaman ke 1 saat input search berubah
   };
 
   const handleOpenCreateDialog = () => {
@@ -120,7 +139,8 @@ export default function DashboardContent() {
         toast.success("Barang baru berhasil ditambahkan.");
       }
       setIsFormDialogOpen(false);
-      await fetchItems(currentPage);
+      // Setelah submit, refresh data dengan debouncedSearchTerm yang aktif
+      await fetchItems(currentPage, debouncedSearchTerm);
     } catch (error) {
       console.error("Gagal menyimpan barang:", error);
       toast.error("Gagal menyimpan barang, silakan coba lagi.");
@@ -136,7 +156,8 @@ export default function DashboardContent() {
       if (items.length === 1 && currentPage > 1) {
         setCurrentPage(currentPage - 1);
       } else {
-        await fetchItems(currentPage);
+        // Jika tidak, refresh data dengan debouncedSearchTerm yang aktif
+        await fetchItems(currentPage, debouncedSearchTerm);
       }
     } catch (error) {
       console.error("Gagal menghapus barang:", error);
@@ -151,20 +172,38 @@ export default function DashboardContent() {
       return <div className="py-10 text-center">Memuat data barang...</div>;
     if (error)
       return <div className="py-10 text-center text-red-500">{error}</div>;
-    if (items.length === 0 && currentPage === 1)
+    if (items.length === 0) {
+      if (debouncedSearchTerm) {
+        // Gunakan debouncedSearchTerm di sini
+        return (
+          <div className="py-10 text-center border-2 border-dashed rounded-lg">
+            <h3 className="text-2xl font-bold tracking-tight">
+              Tidak ada hasil untuk &quot;{debouncedSearchTerm}&quot;
+            </h3>
+            <p className="text-muted-foreground">
+              Coba kata kunci pencarian lain atau{" "}
+              <span
+                onClick={() => setSearchInput("")} // Reset searchInput
+                className="cursor-pointer text-primary hover:underline"
+              >
+                reset pencarian
+              </span>
+              .
+            </p>
+          </div>
+        );
+      }
       return (
         <div className="py-10 text-center border-2 border-dashed rounded-lg">
-          {" "}
           <h3 className="text-2xl font-bold tracking-tight">
-            {" "}
-            Kamu belum punya barang{" "}
-          </h3>{" "}
+            Kamu belum punya barang
+          </h3>
           <p className="text-muted-foreground">
-            {" "}
-            Klik tombol Tambah Barang untuk memulai.{" "}
-          </p>{" "}
+            Klik tombol Tambah Barang untuk memulai.
+          </p>
         </div>
       );
+    }
     return (
       <Table className="w-full table-fixed">
         <TableHeader>
@@ -232,6 +271,17 @@ export default function DashboardContent() {
             <PlusCircle className="w-4 h-4" />
             Tambah Barang
           </Button>
+        </div>
+        {/* Input pencarian baru */}
+        <div className="relative mt-4">
+          <Search className="absolute w-4 h-4 -translate-y-1/2 left-3 top-1/2 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Cari barang berdasarkan nama atau deskripsi..."
+            value={searchInput} // Gunakan searchInput untuk value input
+            onChange={handleSearchChange}
+            className="w-full pl-9"
+          />
         </div>
       </CardHeader>
       <CardContent>{renderContent()}</CardContent>
