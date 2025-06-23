@@ -16,7 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useRouter } from "next/navigation"; // Uncomment jika ingin redirect
-import instance from "@/libs/instance";
+import instance from "@/lib/instance";
 import axios from "axios";
 
 export default function RegisterPage() {
